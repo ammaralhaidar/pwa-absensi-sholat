@@ -36,10 +36,11 @@ export async function GET(req: Request) {
       }
     )
 
-    // 2. Ambil waktu saat ini
+    // 2. Ambil waktu saat ini (konversi ke WIB / UTC+7)
     const now = new Date();
-    const todayDate = now.toISOString().split('T')[0];
-    const nowTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    const wibNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const todayDate = wibNow.toISOString().split('T')[0];
+    const nowTime = `${wibNow.getUTCHours().toString().padStart(2, '0')}:${wibNow.getUTCMinutes().toString().padStart(2, '0')}:${wibNow.getUTCSeconds().toString().padStart(2, '0')}`;
 
     // 3. Ambil semua sesi sholat yang jam berakhirnya SUDAH LEWAT
     const { data: sesiList, error: sesiError } = await supabase

@@ -26,9 +26,10 @@ export async function POST(req: Request) {
     }
 
     // 2. Tentukan Sesi Sholat yang sedang aktif secara dinamis
-    // Mendapatkan waktu saat ini dalam format HH:mm:ss untuk perbandingan konsisten
+    // Konversi ke WIB (UTC+7) agar sesuai dengan jam di database
     const now = new Date();
-    const nowTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    const wibNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const nowTime = `${wibNow.getUTCHours().toString().padStart(2, '0')}:${wibNow.getUTCMinutes().toString().padStart(2, '0')}:${wibNow.getUTCSeconds().toString().padStart(2, '0')}`;
     
     const { data: allSesi, error: sesiError } = await supabase
       .from('sesi_sholat')
@@ -57,12 +58,13 @@ export async function POST(req: Request) {
     const status = nowTime <= activeSesi.jam_batas_hadir ? 'Hadir' : 'Terlambat';
 
     // 4. Cek apakah sudah absen hari ini di sesi ini
+    const todayWIB = wibNow.toISOString().split('T')[0];
     const { data: existingLog } = await supabase
       .from('log_absensi')
       .select('id')
       .eq('santri_id', santri.id)
       .eq('sesi_id', activeSesi.id)
-      .eq('tanggal', new Date().toISOString().split('T')[0])
+      .eq('tanggal', todayWIB)
       .single();
 
     if (existingLog) {
@@ -75,7 +77,7 @@ export async function POST(req: Request) {
       .insert({
         santri_id: santri.id,
         sesi_id: activeSesi.id,
-        tanggal: new Date().toISOString().split('T')[0], // YYYY-MM-DD (UTC base)
+        tanggal: todayWIB, // YYYY-MM-DD (WIB)
         status: status,
       })
       .select();
