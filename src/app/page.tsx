@@ -76,32 +76,64 @@ export default function Home() {
     const wibNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
     const todayStr = wibNow.toISOString().split('T')[0];
 
-    const { data } = await supabase
+    // Step 1: Ambil 5 log scan terbaru hari ini (Hadir/Terlambat saja)
+    const { data: logs } = await supabase
       .from('log_absensi')
-      .select('id, status, created_at, santri_id, data_santri(nama_santri, kelas, nis)')
+      .select('id, santri_id, status, waktu_scan')
       .eq('tanggal', todayStr)
       .in('status', ['Hadir', 'Terlambat'])
-      .order('created_at', { ascending: false })
+      .order('waktu_scan', { ascending: false })
       .limit(5);
 
-    if (data && data.length > 0) {
-      const logs: ScanLog[] = data.map((log: any) => ({
-        id: log.id,
-        nis: log.data_santri?.nis || '',
-        nama: log.data_santri?.nama_santri || 'Unknown',
-        kelas: log.data_santri?.kelas || '-',
-        time: new Date(log.created_at).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        status: log.status as 'Hadir' | 'Terlambat'
-      }));
-      setScanHistory(logs);
+    if (!logs || logs.length === 0) {
+      setScanHistory([]);
+      return;
     }
+
+    // Step 2: Ambil data santri berdasarkan ID unik dari log
+    const santriIds = [...new Set(logs.map(l => l.santri_id))];
+    const { data: santriData } = await supabase
+      .from('data_santri')
+      .select('id, nama_santri, kelas, nis')
+      .in('id', santriIds);
+
+    const santriMap = new Map((santriData || []).map(s => [s.id, s]));
+
+    // Gabungkan data log + santri
+    const result: ScanLog[] = logs.map(log => {
+      const santri = santriMap.get(log.santri_id);
+      return {
+        id: log.id,
+        nis: santri?.nis || '',
+        nama: santri?.nama_santri || 'Unknown',
+        kelas: santri?.kelas || '-',
+        time: new Date(log.waktu_scan).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        status: log.status as 'Hadir' | 'Terlambat'
+      };
+    });
+    setScanHistory(result);
   };
 
   useEffect(() => {
     fetchSesi();
     fetchRecentLogs();
+
+    // Realtime: subscribe ke INSERT baru di log_absensi
+    // Agar semua device yang terbuka otomatis menerima data scan terbaru
+    const channel = supabase
+      .channel('scan-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'log_absensi' },
+        () => { fetchRecentLogs(); }
+      )
+      .subscribe();
+
     const interval = setInterval(fetchSesi, 60000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Countdown timer
