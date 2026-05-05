@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, UserCheck, Clock, CheckCircle2, Timer, Settings2, AlertTriangle } from "lucide-react";
 import BarcodeScanner from "@/components/scanner/BarcodeScanner";
+import InstallPrompt from "@/components/pwa/InstallPrompt";
 import { createClient } from "@/utils/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -70,8 +71,35 @@ export default function Home() {
     }
   };
 
+  const fetchRecentLogs = async () => {
+    const now = new Date();
+    const wibNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    const todayStr = wibNow.toISOString().split('T')[0];
+
+    const { data } = await supabase
+      .from('log_absensi')
+      .select('id, status, created_at, santri_id, data_santri(nama_santri, kelas, nis)')
+      .eq('tanggal', todayStr)
+      .in('status', ['Hadir', 'Terlambat'])
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (data && data.length > 0) {
+      const logs: ScanLog[] = data.map((log: any) => ({
+        id: log.id,
+        nis: log.data_santri?.nis || '',
+        nama: log.data_santri?.nama_santri || 'Unknown',
+        kelas: log.data_santri?.kelas || '-',
+        time: new Date(log.created_at).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        status: log.status as 'Hadir' | 'Terlambat'
+      }));
+      setScanHistory(logs);
+    }
+  };
+
   useEffect(() => {
     fetchSesi();
+    fetchRecentLogs();
     const interval = setInterval(fetchSesi, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -170,6 +198,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-full min-h-[calc(100vh-64px)] p-4 md:p-8">
+      <InstallPrompt />
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Scanner Kehadiran</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Sistem presensi cepat menggunakan barcode 1D</p>

@@ -33,11 +33,15 @@ export default function BarcodeScanner({ onScanSuccess }: BarcodeScannerProps) {
     
     return () => {
       window.removeEventListener('click', initAudio);
-      if (scannerRef.current && isScanning) {
-        scannerRef.current.stop().catch(console.error);
+      // Safely cleanup scanner on unmount
+      const scanner = scannerRef.current;
+      if (scanner) {
+        scanner.stop().catch(() => {});
+        try { scanner.clear(); } catch {}
+        scannerRef.current = null;
       }
     };
-  }, [isScanning]);
+  }, []);
 
   const playBeep = () => {
     if (!audioContextRef.current) return;
@@ -134,18 +138,23 @@ export default function BarcodeScanner({ onScanSuccess }: BarcodeScannerProps) {
   };
 
   const stopScanning = async () => {
-    if (scannerRef.current && isScanning) {
+    const scanner = scannerRef.current;
+    // Immediately update UI state to prevent double-click issues
+    setIsScanning(false);
+    setFeedback({ type: null, message: '' });
+    
+    if (scanner) {
       try {
-        const state = scannerRef.current.getState();
-        if (state === 2) { // 2 = Html5QrcodeScannerState.SCANNING
-          await scannerRef.current.stop();
-        }
-      } catch (err) {
-        // silently ignore to prevent "Cannot Stop" runtime error popup
-      } finally {
-        setIsScanning(false);
-        setFeedback({ type: null, message: '' });
+        await scanner.stop();
+      } catch {
+        // Silently ignore - scanner may already be stopped or disposed
       }
+      try {
+        scanner.clear();
+      } catch {
+        // Ignore clear errors
+      }
+      scannerRef.current = null;
     }
   };
 

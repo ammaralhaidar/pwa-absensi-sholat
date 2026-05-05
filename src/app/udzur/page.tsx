@@ -187,7 +187,9 @@ export default function UdzurPage() {
                 <Label htmlFor="sesi">Sesi Sholat <span className="text-red-500">*</span></Label>
                 <Select onValueChange={(val) => val && setSelectedSesi(val)} value={selectedSesi}>
                   <SelectTrigger id="sesi">
-                    <SelectValue placeholder="Pilih sesi sholat..." />
+                    <SelectValue placeholder="Pilih sesi sholat...">
+                      {selectedSesi ? sesiList.find(s => s.id === selectedSesi)?.nama_sesi || selectedSesi : undefined}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {sesiList.map(s => (

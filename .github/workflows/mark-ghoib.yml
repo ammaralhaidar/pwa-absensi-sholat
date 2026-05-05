@@ -12,7 +12,11 @@ jobs:
     steps:
       - name: Panggil API Mark Ghoib
         run: |
-          curl -s -X GET \
+          echo "Memanggil API mark-ghoib..."
+          echo "Waktu saat ini (UTC): $(date -u)"
+          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}" \
             "${{ secrets.APP_URL }}/api/cron/mark-ghoib" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            --max-time 30
+            --max-time 30)
+          echo "Response dari API:"
+          echo "$RESPONSE"
