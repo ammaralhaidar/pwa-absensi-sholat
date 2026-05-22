@@ -41,16 +41,10 @@ export async function POST(req: Request) {
     if (allSesi && !sesiError) {
       // Cari sesi yang waktunya sedang berlangsung (jam_mulai <= now <= jam_berakhir)
       activeSesi = allSesi.find(s => nowTime >= s.jam_mulai && nowTime <= s.jam_berakhir);
-      
-      // Fallback untuk testing: Jika diluar semua sesi, jadikan sesi pertama sebagai yang aktif
-      // Hapus bagian fallback ini di produksi jika ingin membatasi scan hanya saat jam sholat
-      if (!activeSesi && allSesi.length > 0) {
-        activeSesi = allSesi[0];
-      }
     }
 
     if (!activeSesi) {
-      return NextResponse.json({ success: false, message: "Tidak ada data sesi sholat di database." }, { status: 400 });
+      return NextResponse.json({ success: false, message: "Tidak ada sesi sholat yang sedang aktif saat ini." }, { status: 400 });
     }
 
     // 3. Tentukan Status (Hadir vs Terlambat)

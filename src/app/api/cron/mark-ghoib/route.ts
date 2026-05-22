@@ -65,9 +65,17 @@ export async function GET(req: Request) {
     }
 
     let totalGhoibDitambahkan = 0;
+    const logDetails: string[] = [];
+
+    console.log(`[CRON] Starting mark-ghoib process at ${new Date().toISOString()}`);
+    console.log(`[CRON] Date: ${todayDate}, Time: ${nowTime}`);
+    console.log(`[CRON] Found ${sesiList.length} sessions that have ended`);
+    console.log(`[CRON] Total active students: ${santriList.length}`);
 
     // 5. Untuk setiap sesi yang sudah lewat, cek absensi santri hari ini
     for (const sesi of sesiList) {
+      console.log(`[CRON] Processing session: ${sesi.nama_sesi} (ended at ${sesi.jam_berakhir})`);
+      
       // Ambil daftar santri_id yang SUDAH absen di sesi ini hari ini (apapun statusnya)
       const { data: absenHariIni, error: absenError } = await supabase
         .from('log_absensi')
@@ -82,6 +90,9 @@ export async function GET(req: Request) {
 
       // Saring santri yang BELUM absen
       const santriBelumAbsen = santriList.filter(s => !idSudahAbsen.includes(s.id));
+
+      console.log(`[CRON]   - Already attended: ${idSudahAbsen.length} students`);
+      console.log(`[CRON]   - Not attended (will mark Ghoib): ${santriBelumAbsen.length} students`);
 
       if (santriBelumAbsen.length > 0) {
         // Siapkan payload untuk bulk insert
@@ -98,17 +109,30 @@ export async function GET(req: Request) {
           .insert(ghoibPayload);
 
         if (insertError) {
-          console.error(`Gagal menandai ghoib pada sesi ${sesi.nama_sesi}:`, insertError);
+          console.error(`[CRON] ❌ Failed to mark Ghoib for ${sesi.nama_sesi}:`, insertError);
+          logDetails.push(`${sesi.nama_sesi}: FAILED (${insertError.message})`);
         } else {
           totalGhoibDitambahkan += ghoibPayload.length;
+          console.log(`[CRON] ✅ Successfully marked ${ghoibPayload.length} students as Ghoib for ${sesi.nama_sesi}`);
+          logDetails.push(`${sesi.nama_sesi}: ${ghoibPayload.length} students marked Ghoib`);
         }
+      } else {
+        console.log(`[CRON] ✅ All students attended ${sesi.nama_sesi} - no Ghoib to mark`);
+        logDetails.push(`${sesi.nama_sesi}: All students attended`);
       }
     }
+
+    console.log(`[CRON] ========================================`);
+    console.log(`[CRON] SUMMARY: Total ${totalGhoibDitambahkan} students marked as Ghoib`);
+    console.log(`[CRON] Details:`, logDetails);
+    console.log(`[CRON] ========================================`);
 
     return NextResponse.json({ 
       success: true, 
       message: "Proses sinkronisasi otomatis selesai", 
-      ditambahkan: totalGhoibDitambahkan 
+      ditambahkan: totalGhoibDitambahkan,
+      details: logDetails,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error: any) {

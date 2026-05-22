@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/scripts
+Rekap_SERVER_16-22_Mei.xlsx

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { format } from "date-fns";
+import { format, startOfMonth, endOfMonth, subDays, eachDayOfInterval } from "date-fns";
 import { id } from "date-fns/locale";
 import { DateRange } from "react-day-picker";
 import * as XLSX from "xlsx";
@@ -141,25 +141,199 @@ export default function RiwayatPage() {
   };
 
   const handleExportExcel = async () => {
-    // In a real app, you would fetch data for the selected range (e.g. month).
-    // For this prototype, we'll export the currently displayed table.
-    const exportData = filteredData.map(item => {
-      const row: Record<string, string> = {
-        "Nama Santri": item.name,
-        "Kelas": item.kelas,
-      };
-      sesiColumns.forEach(sesi => {
-        row[sesi] = item.absensi[sesi].toUpperCase();
+    try {
+      let startDate: Date;
+      let endDate: Date;
+
+      if (exportType === "hari_ini") {
+        startDate = new Date();
+        endDate = new Date();
+      } else if (exportType === "minggu_ini") {
+        endDate = new Date();
+        startDate = subDays(endDate, 6);
+      } else if (exportType === "bulan_ini") {
+        const today = new Date();
+        startDate = startOfMonth(today);
+        endDate = endOfMonth(today);
+      } else if (exportType === "kustom") {
+        if (!customDateRange?.from || !customDateRange?.to) {
+          alert("Silakan pilih rentang tanggal terlebih dahulu!");
+          return;
+        }
+        startDate = customDateRange.from;
+        endDate = customDateRange.to;
+      } else {
+        return;
+      }
+
+      const startDateStr = format(startDate, "yyyy-MM-dd");
+      const endDateStr = format(endDate, "yyyy-MM-dd");
+
+      const allDates = eachDayOfInterval({ start: startDate, end: endDate });
+
+      const [santriRes, sesiRes] = await Promise.all([
+        supabase.from("data_santri").select("id, nama_santri, kelas").order("nama_santri"),
+        supabase.from("sesi_sholat").select("id, nama_sesi").order("jam_mulai")
+      ]);
+
+      let allLogData: any[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data: logPage, error: logError } = await supabase
+          .from("log_absensi")
+          .select("santri_id, sesi_id, tanggal, status, keterangan")
+          .gte("tanggal", startDateStr)
+          .lte("tanggal", endDateStr)
+          .order("tanggal", { ascending: true })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+
+        if (logError) throw logError;
+        
+        if (logPage && logPage.length > 0) {
+          allLogData = allLogData.concat(logPage);
+          page++;
+          hasMore = logPage.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      const logRes = { data: allLogData, error: null };
+
+      if (!santriRes.data || !sesiRes.data || !logRes.data) {
+        alert("Gagal mengambil data dari server!");
+        return;
+      }
+
+      console.log('=== DEBUGGING EXPORT ===');
+      console.log('Date range:', startDateStr, 'to', endDateStr);
+      console.log('Total records fetched:', logRes.data.length);
+      console.log('Sample records (first 3):', logRes.data.slice(0, 3));
+      console.log('All dates in range:', allDates.map(d => format(d, "yyyy-MM-dd")));
+
+      let santriList = santriRes.data;
+      if (exportKelas !== "Semua Kelas") {
+        santriList = santriList.filter(s => s.kelas === exportKelas);
+      }
+
+      if (santriList.length === 0) {
+        alert("Tidak ada data santri untuk kelas yang dipilih!");
+        return;
+      }
+
+      const sesiMap = new Map();
+      sesiRes.data.forEach(s => {
+        sesiMap.set(s.id, s.nama_sesi);
       });
-      return row;
-    });
 
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Riwayat_Absensi");
+      const logMap = new Map();
+      logRes.data.forEach(log => {
+        const key = `${log.santri_id}_${log.tanggal}_${log.sesi_id}`;
+        let statusDisplay = log.status.toLowerCase();
+        if (statusDisplay === "udzur") {
+          const ket = log.keterangan ? log.keterangan.toLowerCase() : "izin";
+          statusDisplay = `udzur-${ket}`;
+        }
+        logMap.set(key, statusDisplay);
+      });
 
-    const fileName = `Rekap_Absensi_${exportKelas}_${exportType}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+      console.log('LogMap size:', logMap.size);
+      console.log('Sample logMap keys (first 5):', Array.from(logMap.keys()).slice(0, 5));
+      console.log('Date format from DB:', logRes.data[0]?.tanggal, 'Type:', typeof logRes.data[0]?.tanggal);
+
+      const dataSheetRows: Record<string, string | number>[] = [];
+      const statsSheetRows: Record<string, string | number>[] = [];
+
+      santriList.forEach(santri => {
+        const dataRow: Record<string, string> = {
+          "Nama": santri.nama_santri,
+          "Kelas": santri.kelas,
+        };
+
+        let totalSholat = 0;
+        let totalHadir = 0;
+        let totalGhoib = 0;
+        let totalSakit = 0;
+        let totalIzin = 0;
+        let totalTerlambat = 0;
+
+        allDates.forEach(date => {
+          const dateStr = format(date, "yyyy-MM-dd");
+          const dateLabel = format(date, "d MMM", { locale: id });
+
+          sesiRes.data.forEach(sesi => {
+            const columnName = `${dateLabel} - ${sesi.nama_sesi}`;
+            const key = `${santri.id}_${dateStr}_${sesi.id}`;
+            const status = logMap.get(key) || "-";
+
+            dataRow[columnName] = status.toUpperCase();
+
+            totalSholat++;
+
+            if (status === "hadir") {
+              totalHadir++;
+            } else if (status === "terlambat") {
+              totalHadir++;
+              totalTerlambat++;
+            } else if (status === "ghoib") {
+              totalGhoib++;
+            } else if (status.startsWith("udzur")) {
+              if (status.includes("sakit")) {
+                totalSakit++;
+              } else {
+                totalIzin++;
+              }
+            }
+          });
+        });
+
+        dataSheetRows.push(dataRow);
+
+        const persentaseKehadiran = totalSholat > 0 ? totalHadir / totalSholat : 0;
+
+        statsSheetRows.push({
+          "Nama": santri.nama_santri,
+          "Kelas": santri.kelas,
+          "Total Sholat": totalSholat,
+          "Total Hadir": totalHadir,
+          "Total Ghoib": totalGhoib,
+          "Total Sakit": totalSakit,
+          "Total Izin": totalIzin,
+          "Total Terlambat": totalTerlambat,
+          "Persentase Kehadiran": persentaseKehadiran,
+        });
+      });
+
+      const dataWorksheet = XLSX.utils.json_to_sheet(dataSheetRows);
+      const statsWorksheet = XLSX.utils.json_to_sheet(statsSheetRows);
+
+      const range = XLSX.utils.decode_range(statsWorksheet['!ref'] || 'A1');
+      const persentaseColIndex = 8;
+      for (let row = range.s.r + 1; row <= range.e.r; row++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: persentaseColIndex });
+        if (statsWorksheet[cellAddress]) {
+          statsWorksheet[cellAddress].t = 'n';
+          statsWorksheet[cellAddress].z = '0.00%';
+        }
+      }
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, dataWorksheet, "Data Absensi");
+      XLSX.utils.book_append_sheet(workbook, statsWorksheet, "Statistik Kehadiran");
+
+      const rangeLabel = exportType === "kustom" 
+        ? `${format(startDate, "dd-MMM", { locale: id })}_${format(endDate, "dd-MMM", { locale: id })}`
+        : exportType;
+      const fileName = `Rekap_Absensi_${exportKelas}_${rangeLabel}.xlsx`;
+      
+      XLSX.writeFile(workbook, fileName);
+    } catch (error) {
+      console.error("Error exporting Excel:", error);
+      alert("Terjadi kesalahan saat membuat file Excel!");
+    }
   };
 
   // Filter data based on selected class
