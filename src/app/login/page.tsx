@@ -15,6 +15,62 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginType, setLoginType] = useState<"pengurus" | "musyrif">("pengurus");
+
+  const handleLoginPengurus = async () => {
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    localStorage.setItem("userRole", "pengurus");
+    router.refresh();
+    router.push("/");
+  };
+
+  const handleLoginMusyrif = async () => {
+    const supabase = createClient();
+
+    // 1. Login via Supabase Auth (sama seperti pengurus)
+    const { data } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (data) {
+      throw new Error("Email atau password salah.");
+    }
+
+    // 2. Verifikasi bahwa user ini terdaftar sebagai Musyrif
+    const { data: musyrifProfile, error: profileError } = await supabase
+      .from("musyrif")
+      .select("id, nama_asli, email, status_aktif")
+      .eq("id", data.user.id)
+      .single();
+
+    if (profileError || !musyrifProfile) {
+      await supabase.auth.signOut();
+      throw new Error("Akun ini tidak terdaftar sebagai Musyrif.");
+    }
+
+    if (!musyrifProfile.status_aktif) {
+      await supabase.auth.signOut();
+      throw new Error("Akun Musyrif ini sudah dinonaktifkan. Hubungi admin.");
+    }
+
+    // 3. Simpan profil musyrif ke localStorage
+    localStorage.setItem("userRole", "musyrif");
+    localStorage.setItem("musyrifId", musyrifProfile.id);
+    localStorage.setItem("musyrifName", musyrifProfile.nama_asli);
+    localStorage.setItem("musyrifEmail", musyrifProfile.email);
+
+    router.push("/musyrif-dashboard");
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,22 +78,13 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setError(error.message);
-        return;
+      if (loginType === "pengurus") {
+        await handleLoginPengurus();
+      } else {
+        await handleLoginMusyrif();
       }
-
-      // Refresh to apply middleware session
-      router.refresh();
-      router.push("/");
-    } catch (err) {
-      setError("Terjadi kesalahan sistem. Silakan coba lagi.");
+    } catch (err: any) {
+      setError(err.message || "Terjadi kesalahan sistem. Silakan coba lagi.");
     } finally {
       setIsLoading(false);
     }
@@ -55,60 +102,86 @@ export default function LoginPage() {
             <Lock className="w-8 h-8 text-white" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Portal Pengurus
+            Portal {loginType === "pengurus" ? "Pengurus" : "Musyrif"}
           </CardTitle>
           <CardDescription className="text-slate-500 dark:text-slate-400">
-            Masuk untuk mengelola presensi sholat santri.
+            Masuk untuk mengelola {loginType === "pengurus" ? "presensi sholat santri" : "absensi & aktivitas"}.
           </CardDescription>
         </CardHeader>
-        
+
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-5">
+            <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setLoginType("pengurus")}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${loginType === "pengurus"
+                  ? "bg-white dark:bg-slate-900 text-primary shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  }`}
+              >
+                Pengurus
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginType("musyrif")}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${loginType === "musyrif"
+                  ? "bg-white dark:bg-slate-900 text-primary shadow-sm"
+                  : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  }`}
+              >
+                Musyrif
+              </button>
+            </div>
+
+
             {error && (
               <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg flex items-center gap-2 text-sm">
                 <AlertCircle className="w-4 h-4" />
                 {error}
               </div>
             )}
-            
+
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-700 dark:text-slate-300">Email Pengurus</Label>
+              <Label htmlFor="email" className="text-slate-700 dark:text-slate-300">
+                Email {loginType === "pengurus" ? "Pengurus" : "Musyrif"}
+              </Label>
               <div className="relative">
                 <User className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                <Input 
-                  id="email" 
+                <Input
+                  id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@alhamra.com" 
+                  placeholder="admin@alhamra.com"
                   className="pl-10 h-11 bg-slate-50 dark:bg-slate-950/50"
                   required
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">Password</Label>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-                <Input 
-                  id="password" 
-                  type="password" 
+                <Input
+                  id="password"
+                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••" 
+                  placeholder="••••••••"
                   className="pl-10 h-11 bg-slate-50 dark:bg-slate-950/50"
                   required
                 />
               </div>
             </div>
           </CardContent>
-          
+
           <CardFooter className="pt-2 pb-8">
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               disabled={isLoading}
               className="w-full h-11 bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/20 text-base font-semibold"
             >
@@ -117,7 +190,7 @@ export default function LoginPage() {
           </CardFooter>
         </form>
       </Card>
-      
+
       {/* Footer Branding */}
       <div className="absolute bottom-6 left-0 right-0 text-center text-xs text-slate-400 font-medium">
         &copy; {new Date().getFullYear()} Aplikasi Presensi Al-Hamra. All rights reserved.

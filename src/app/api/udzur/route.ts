@@ -26,7 +26,7 @@ export async function POST(req: Request) {
               cookiesToSet.forEach(({ name, value, options }) =>
                 cookieStore.set(name, value, options)
               )
-            } catch {}
+            } catch { }
           },
         },
       }
@@ -44,26 +44,26 @@ export async function POST(req: Request) {
       .single();
 
     if (existingLog) {
-       // update saja
-       const { error: updateError } = await supabase
-         .from('log_absensi')
-         .update({ status: 'Udzur', keterangan: keterangan })
-         .eq('id', existingLog.id);
-         
-       if (updateError) throw updateError;
+      // update saja
+      const { error: updateError } = await supabase
+        .from('log_absensi')
+        .update({ status: 'Udzur', keterangan: keterangan })
+        .eq('id', existingLog.id);
+
+      if (updateError) throw updateError;
     } else {
-       // insert baru
-       const { error: insertError } = await supabase
-         .from('log_absensi')
-         .insert({
-           santri_id,
-           sesi_id,
-           tanggal: todayDate,
-           status: 'Udzur',
-           keterangan
-         });
-         
-       if (insertError) throw insertError;
+      // insert baru
+      const { error: insertError } = await supabase
+        .from('log_absensi')
+        .insert({
+          santri_id,
+          sesi_id,
+          tanggal: todayDate,
+          status: 'Udzur',
+          keterangan
+        });
+
+      if (insertError) throw insertError;
     }
 
     return NextResponse.json({ success: true, message: "Data udzur berhasil disimpan" });

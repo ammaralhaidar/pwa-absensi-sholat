@@ -38,9 +38,10 @@ export async function updateSession(request: NextRequest) {
 
   const isLoginPage = request.nextUrl.pathname.startsWith('/login');
   const isCronRoute = request.nextUrl.pathname.startsWith('/api/cron/');
+  const isMusyrifDashboard = request.nextUrl.pathname.startsWith('/musyrif-dashboard');
 
-  // Jika user tidak login dan mengakses selain halaman login & cron
-  if (!user && !isLoginPage && !isCronRoute) {
+  // Jika user tidak login dan mengakses selain halaman login, cron & musyrif dashboard (dummy auth)
+  if (!user && !isLoginPage && !isCronRoute && !isMusyrifDashboard) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
