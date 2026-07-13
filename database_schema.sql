@@ -14,13 +14,14 @@ CREATE TABLE data_santri (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 3. Tabel `sesi_sholat` (Master Sesi Waktu)
+-- 3. Tabel `sesi_sholat` (Master Sesi Waktu / Kegiatan)
 CREATE TABLE sesi_sholat (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nama_sesi VARCHAR(50) NOT NULL UNIQUE, -- 'Subuh', 'Dzuhur', 'Ashar', 'Maghrib', 'Isya'
+    nama_sesi VARCHAR(50) NOT NULL UNIQUE, -- 'Subuh', 'Dzuhur', 'Ashar', 'Maghrib', 'Isya', 'Apel Pesantren', etc.
     jam_mulai TIME NOT NULL,
     jam_batas_hadir TIME NOT NULL,
     jam_berakhir TIME NOT NULL,
+    hari_aktif INT[] DEFAULT '{0,1,2,3,4,5,6}', -- Array hari (0=Minggu, 1=Senin, ..., 6=Sabtu)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -43,10 +44,13 @@ CREATE INDEX idx_data_santri_nis ON data_santri(nis);
 CREATE INDEX idx_log_absensi_tanggal_sesi ON log_absensi(tanggal, sesi_id);
 CREATE INDEX idx_log_absensi_santri_tanggal ON log_absensi(santri_id, tanggal);
 
--- 6. Insert Data Dummy untuk Sesi Sholat (Bisa diubah via UI Konfigurasi nanti)
-INSERT INTO sesi_sholat (nama_sesi, jam_mulai, jam_batas_hadir, jam_berakhir) VALUES
-('Subuh', '04:00:00', '04:30:00', '05:00:00'),
-('Dzuhur', '11:45:00', '12:15:00', '12:45:00'),
-('Ashar', '15:00:00', '15:30:00', '16:00:00'),
-('Maghrib', '17:45:00', '18:15:00', '18:45:00'),
-('Isya', '19:00:00', '19:30:00', '20:00:00');
+-- 6. Insert Data Sesi Sholat & Kegiatan
+INSERT INTO sesi_sholat (nama_sesi, jam_mulai, jam_batas_hadir, jam_berakhir, hari_aktif) VALUES
+('Subuh', '04:00:00', '04:30:00', '05:00:00', '{0,1,2,3,4,5,6}'),
+('Dzuhur', '11:45:00', '12:15:00', '12:45:00', '{0,1,2,3,4,5,6}'),
+('Ashar', '15:00:00', '15:30:00', '16:00:00', '{0,1,2,3,4,5,6}'),
+('Maghrib', '17:45:00', '18:15:00', '18:45:00', '{0,1,2,3,4,5,6}'),
+('Isya', '19:00:00', '19:30:00', '20:00:00', '{0,1,2,3,4,5,6}'),
+('Apel Pesantren', '07:00:00', '07:15:00', '07:30:00', '{1,2,3,4,5,6}'),
+('Tarbiyah Malam', '20:30:00', '21:00:00', '21:15:00', '{0,1,2,3,4,5,6}'),
+('Tahajud', '03:00:00', '03:45:00', '04:00:00', '{3}');

@@ -110,7 +110,7 @@ export default function UdzurPage() {
     <div className="flex flex-col h-full overflow-y-auto p-4 md:p-8">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Input Udzur Manual</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Formulir pencatatan santri yang berhalangan hadir sholat</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Formulir pencatatan santri yang berhalangan hadir kegiatan</p>
       </div>
 
       <div className="max-w-2xl w-full mx-auto">

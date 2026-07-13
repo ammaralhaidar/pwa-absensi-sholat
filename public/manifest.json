@@ -1,7 +1,7 @@
 {
-  "name": "Absensi Sholat Santri",
-  "short_name": "Absensi Sholat",
-  "description": "Aplikasi PWA untuk presensi sholat santri dengan pemindai barcode.",
+  "name": "Absensi Santri Al Hamra",
+  "short_name": "Absensi Al Hamra",
+  "description": "Aplikasi PWA untuk presensi kegiatan santri dengan pemindai barcode.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

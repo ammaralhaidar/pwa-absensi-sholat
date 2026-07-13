@@ -58,7 +58,7 @@ export default function LoginPage() {
             Portal Pengurus
           </CardTitle>
           <CardDescription className="text-slate-500 dark:text-slate-400">
-            Masuk untuk mengelola presensi sholat santri.
+            Masuk untuk mengelola presensi kegiatan santri.
           </CardDescription>
         </CardHeader>
         

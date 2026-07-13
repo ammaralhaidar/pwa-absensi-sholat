@@ -42,15 +42,21 @@ export async function GET(req: Request) {
     const todayDate = wibNow.toISOString().split('T')[0];
     const nowTime = `${wibNow.getUTCHours().toString().padStart(2, '0')}:${wibNow.getUTCMinutes().toString().padStart(2, '0')}:${wibNow.getUTCSeconds().toString().padStart(2, '0')}`;
 
+    const todayDay = wibNow.getUTCDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu (WIB)
+
     // 3. Ambil semua sesi sholat yang jam berakhirnya SUDAH LEWAT
-    const { data: sesiList, error: sesiError } = await supabase
+    const { data: rawSesiList, error: sesiError } = await supabase
       .from('sesi_sholat')
-      .select('id, nama_sesi, jam_berakhir')
+      .select('id, nama_sesi, jam_berakhir, hari_aktif')
       .lte('jam_berakhir', nowTime);
 
     if (sesiError) throw sesiError;
+
+    // Filter hanya sesi yang aktif pada hari ini
+    const sesiList = rawSesiList ? rawSesiList.filter(s => !s.hari_aktif || s.hari_aktif.includes(todayDay)) : [];
+
     if (!sesiList || sesiList.length === 0) {
-      return NextResponse.json({ success: true, message: "Tidak ada sesi sholat yang baru saja berakhir." });
+      return NextResponse.json({ success: true, message: "Tidak ada sesi kegiatan yang baru saja berakhir hari ini." });
     }
 
     // 4. Ambil semua santri aktif

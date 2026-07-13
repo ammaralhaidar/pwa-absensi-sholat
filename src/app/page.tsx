@@ -25,6 +25,7 @@ type SesiSholat = {
   jam_mulai: string;
   jam_batas_hadir: string;
   jam_berakhir: string;
+  hari_aktif?: number[];
 };
 
 export default function Home() {
@@ -44,13 +45,18 @@ export default function Home() {
   const fetchSesi = async () => {
     const { data, error } = await supabase.from("sesi_sholat").select("*").order("jam_mulai", { ascending: true });
     if (data && !error) {
-      const nowTime = new Date().toLocaleTimeString('en-US', { hour12: false });
+      const wibNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+      const todayDay = wibNow.getDay();
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const nowTime = `${pad(wibNow.getHours())}:${pad(wibNow.getMinutes())}:${pad(wibNow.getSeconds())}`;
       
       let foundActive = false;
       let active: SesiSholat | null = null;
       let next: SesiSholat | null = null;
 
-      const processedSesi = data.map((sesi) => {
+      const filteredData = data.filter((sesi) => !sesi.hari_aktif || sesi.hari_aktif.includes(todayDay));
+
+      const processedSesi = filteredData.map((sesi) => {
         let isActive = false;
         if (nowTime >= sesi.jam_mulai && nowTime <= sesi.jam_berakhir) {
           isActive = true;
@@ -60,9 +66,9 @@ export default function Home() {
         return { ...sesi, active: isActive };
       });
 
-      if (!foundActive && data.length > 0) {
+      if (!foundActive && filteredData.length > 0) {
         // Find next session today
-        next = data.find(s => s.jam_mulai > nowTime) || data[0]; 
+        next = filteredData.find(s => s.jam_mulai > nowTime) || filteredData[0]; 
       }
 
       setActiveSesi(active);
@@ -247,7 +253,7 @@ export default function Home() {
               {activeSesi ? (
                 <>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
-                    Sholat {activeSesi.nama_sesi} (Aktif)
+                    Sesi {activeSesi.nama_sesi} (Aktif)
                   </h2>
                   <div className="flex items-center gap-1.5 mt-3 text-sm font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1 rounded-full w-max">
                     <Clock className="w-4 h-4" />
@@ -257,7 +263,7 @@ export default function Home() {
               ) : nextSesi ? (
                 <>
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-1">
-                    Menunggu Sholat {nextSesi.nama_sesi}
+                    Menunggu Sesi {nextSesi.nama_sesi}
                   </h2>
                   <div className="flex items-center gap-1.5 mt-3 text-sm font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-3 py-1 rounded-full w-max">
                     <Timer className="w-4 h-4 animate-pulse" />
@@ -283,7 +289,7 @@ export default function Home() {
                   <Camera className="w-8 h-8 text-slate-300 dark:text-slate-600" />
                 </div>
                 <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">Kamera Tertidur</h3>
-                <p className="text-slate-500 dark:text-slate-400 mb-8">Kamera akan otomatis menyala saat jadwal Sholat {nextSesi.nama_sesi} tiba dalam <span className="font-semibold text-primary">{countdown}</span>.</p>
+                <p className="text-slate-500 dark:text-slate-400 mb-8">Kamera akan otomatis menyala saat jadwal {nextSesi.nama_sesi} tiba dalam <span className="font-semibold text-primary">{countdown}</span>.</p>
                 
                 <Dialog open={isOverrideOpen} onOpenChange={setIsOverrideOpen}>
                   <DialogTrigger 

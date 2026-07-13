@@ -10,13 +10,13 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Absensi Sholat Santri",
-  description: "Aplikasi PWA untuk presensi sholat santri dengan pemindai barcode",
+  title: "Absensi Santri Al Hamra",
+  description: "Aplikasi PWA untuk presensi kegiatan santri dengan pemindai barcode",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Absensi Sholat",
+    title: "Absensi Al Hamra",
   },
   formatDetection: {
     telephone: false,

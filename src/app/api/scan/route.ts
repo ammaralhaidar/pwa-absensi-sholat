@@ -39,12 +39,15 @@ export async function POST(req: Request) {
     let activeSesi = null;
     
     if (allSesi && !sesiError) {
+      const todayDay = wibNow.getUTCDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu (WIB)
+      // Filter sesi yang aktif pada hari ini
+      const validSesi = allSesi.filter(s => !s.hari_aktif || s.hari_aktif.includes(todayDay));
       // Cari sesi yang waktunya sedang berlangsung (jam_mulai <= now <= jam_berakhir)
-      activeSesi = allSesi.find(s => nowTime >= s.jam_mulai && nowTime <= s.jam_berakhir);
+      activeSesi = validSesi.find(s => nowTime >= s.jam_mulai && nowTime <= s.jam_berakhir);
     }
 
     if (!activeSesi) {
-      return NextResponse.json({ success: false, message: "Tidak ada sesi sholat yang sedang aktif saat ini." }, { status: 400 });
+      return NextResponse.json({ success: false, message: "Tidak ada sesi yang sedang aktif saat ini." }, { status: 400 });
     }
 
     // 3. Tentukan Status (Hadir vs Terlambat)
