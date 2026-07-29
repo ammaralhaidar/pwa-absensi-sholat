@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Camera, Menu, X, Clock, CalendarDays, Settings, LogOut } from "lucide-react";
@@ -10,6 +10,25 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string>("");
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (pathname === "/login") return;
+    const fetchUser = async () => {
+      const { createClient } = await import("@/utils/supabase/client");
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || "");
+        const role = user.user_metadata?.role || user.app_metadata?.role;
+        if (role === 'admin' || user.email === 'absen@mail.com') {
+          setIsAdmin(true);
+        }
+      }
+    };
+    fetchUser();
+  }, [pathname]);
 
   // Exclude wrapper for login page
   if (pathname === "/login") {
@@ -35,7 +54,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Udzur Manual", href: "/udzur", icon: CalendarDays },
     { name: "Riwayat", href: "/riwayat", icon: Clock },
-    { name: "Pengaturan", href: "/settings", icon: Settings },
+    ...(isAdmin ? [{ name: "Pengaturan", href: "/settings", icon: Settings }] : []),
   ];
 
   return (
@@ -90,11 +109,13 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
           <div className="flex items-center gap-3 px-3 py-2">
             <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex flex-shrink-0 items-center justify-center font-bold text-slate-600 dark:text-slate-300">
-              P
+              {userEmail ? userEmail.charAt(0).toUpperCase() : 'P'}
             </div>
             <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">Pengurus</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Admin Absensi</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{userEmail || 'Pengurus'}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                {isAdmin ? '🛡️ Admin' : '👤 Musyrif'}
+              </p>
             </div>
           </div>
           <Button onClick={handleSignOut} variant="ghost" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10">

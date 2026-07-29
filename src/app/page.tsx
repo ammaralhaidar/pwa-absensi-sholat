@@ -39,6 +39,7 @@ export default function Home() {
   const [overrideBatas, setOverrideBatas] = useState("");
   const [overrideAkhir, setOverrideAkhir] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const supabase = createClient();
 
@@ -124,6 +125,15 @@ export default function Home() {
     fetchSesi();
     fetchRecentLogs();
 
+    const checkRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const role = user?.user_metadata?.role || user?.app_metadata?.role;
+      if (role === 'admin' || user?.email === 'absen@mail.com') {
+        setIsAdmin(true);
+      }
+    };
+    checkRole();
+
     // Realtime: subscribe ke INSERT baru di log_absensi
     // Agar semua device yang terbuka otomatis menerima data scan terbaru
     const channel = supabase
@@ -185,7 +195,10 @@ export default function Home() {
   };
 
   const handleForceStart = async () => {
-    if (!nextSesi) return;
+    if (!nextSesi || !isAdmin) {
+      alert("Akses ditolak: Hanya Admin yang dapat mengubah jadwal!");
+      return;
+    }
     setIsUpdating(true);
     
     const { error } = await supabase
@@ -291,47 +304,49 @@ export default function Home() {
                 <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-200 mb-2">Kamera Tertidur</h3>
                 <p className="text-slate-500 dark:text-slate-400 mb-8">Kamera akan otomatis menyala saat jadwal {nextSesi.nama_sesi} tiba dalam <span className="font-semibold text-primary">{countdown}</span>.</p>
                 
-                <Dialog open={isOverrideOpen} onOpenChange={setIsOverrideOpen}>
-                  <DialogTrigger 
-                    render={
-                      <Button onClick={handleOverrideOpen} variant="outline" className="gap-2 border-slate-300 dark:border-slate-700 w-full rounded-xl h-12 shadow-sm">
-                        <Settings2 className="w-4 h-4" />
-                        Buka Absen Lebih Awal
-                      </Button>
-                    }
-                  />
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5 text-amber-500" />
-                        Mulai Absen Sekarang
-                      </DialogTitle>
-                      <DialogDescription>
-                        Sesi {nextSesi.nama_sesi} belum dimulai. Sesuaikan batas keterlambatan di bawah ini jika acara/sholat dimajukan.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Jam Mulai Sesi</Label>
-                        <Input value={overrideMulai} onChange={(e) => setOverrideMulai(e.target.value)} type="time" step="1" />
+                {isAdmin && (
+                  <Dialog open={isOverrideOpen} onOpenChange={setIsOverrideOpen}>
+                    <DialogTrigger 
+                      render={
+                        <Button onClick={handleOverrideOpen} variant="outline" className="gap-2 border-slate-300 dark:border-slate-700 w-full rounded-xl h-12 shadow-sm">
+                          <Settings2 className="w-4 h-4" />
+                          Buka Absen Lebih Awal
+                        </Button>
+                      }
+                    />
+                    <DialogContent className="sm:max-w-[425px]">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <AlertTriangle className="w-5 h-5 text-amber-500" />
+                          Mulai Absen Sekarang
+                        </DialogTitle>
+                        <DialogDescription>
+                          Sesi {nextSesi.nama_sesi} belum dimulai. Sesuaikan batas keterlambatan di bawah ini jika acara/sholat dimajukan.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                          <Label>Jam Mulai Sesi</Label>
+                          <Input value={overrideMulai} onChange={(e) => setOverrideMulai(e.target.value)} type="time" step="1" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Batas Hadir Tepat Waktu</Label>
+                          <Input value={overrideBatas} onChange={(e) => setOverrideBatas(e.target.value)} type="time" step="1" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Jam Berakhir Sesi</Label>
+                          <Input value={overrideAkhir} onChange={(e) => setOverrideAkhir(e.target.value)} type="time" step="1" />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Batas Hadir Tepat Waktu</Label>
-                        <Input value={overrideBatas} onChange={(e) => setOverrideBatas(e.target.value)} type="time" step="1" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Jam Berakhir Sesi</Label>
-                        <Input value={overrideAkhir} onChange={(e) => setOverrideAkhir(e.target.value)} type="time" step="1" />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setIsOverrideOpen(false)}>Batal</Button>
-                      <Button onClick={handleForceStart} disabled={isUpdating} className="bg-primary text-white">
-                        {isUpdating ? "Memproses..." : "Buka Scanner"}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsOverrideOpen(false)}>Batal</Button>
+                        <Button onClick={handleForceStart} disabled={isUpdating} className="bg-primary text-white">
+                          {isUpdating ? "Memproses..." : "Buka Scanner"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             ) : (
               <p className="text-slate-500">Memuat antarmuka...</p>

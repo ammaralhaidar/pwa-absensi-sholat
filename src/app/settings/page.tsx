@@ -20,10 +20,17 @@ export default function SettingsPage() {
   const [sessions, setSessions] = useState<SesiSholat[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     const fetchSettings = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const role = user?.user_metadata?.role || user?.app_metadata?.role;
+      if (role === 'admin' || user?.email === 'absen@mail.com') {
+        setIsAdmin(true);
+      }
+
       const { data, error } = await supabase.from("sesi_sholat").select("*").order("jam_mulai", { ascending: true });
       if (data && !error) {
         setSessions(data);
@@ -45,6 +52,10 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
+    if (!isAdmin) {
+      alert("Akses ditolak: Hanya Admin yang dapat mengubah konfigurasi jam!");
+      return;
+    }
     setIsSaving(true);
     
     try {
@@ -74,6 +85,25 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return <div className="p-8 text-center">Memuat konfigurasi...</div>;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-slate-50 dark:bg-slate-950">
+        <div className="max-w-md bg-white dark:bg-slate-900 p-8 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-2xl">
+            🔒
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Akses Terbatas</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+            Halaman Pengaturan Waktu Absensi hanya dapat diakses oleh akun **Admin**. Silakan gunakan akun admin untuk mengubah konfigurasi jadwal.
+          </p>
+          <a href="/" className="inline-flex items-center justify-center px-6 py-2.5 bg-primary text-white font-medium rounded-xl text-sm shadow-sm hover:bg-primary/90 transition-colors">
+            Kembali ke Scanner
+          </a>
+        </div>
+      </div>
+    );
   }
 
   return (
