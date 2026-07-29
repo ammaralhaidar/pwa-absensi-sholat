@@ -27,7 +27,7 @@ export default function SettingsPage() {
     const fetchSettings = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       const role = user?.user_metadata?.role || user?.app_metadata?.role;
-      if (role === 'admin' || user?.email === 'absen@mail.com') {
+      if (role === 'admin') {
         setIsAdmin(true);
       }
 

@@ -22,7 +22,7 @@ export default function NavigationWrapper({ children }: { children: React.ReactN
       if (user) {
         setUserEmail(user.email || "");
         const role = user.user_metadata?.role || user.app_metadata?.role;
-        if (role === 'admin' || user.email === 'absen@mail.com') {
+        if (role === 'admin') {
           setIsAdmin(true);
         }
       }
