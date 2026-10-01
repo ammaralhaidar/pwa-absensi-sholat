@@ -40,8 +40,12 @@ export default function RootLayout({
     <html
       lang="id"
       className={`${plusJakartaSans.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-foreground selection:bg-primary/20">
+      <body 
+        className="min-h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-foreground selection:bg-primary/20"
+        suppressHydrationWarning
+      >
         <NavigationWrapper>
           <main className="flex-1 flex flex-col overflow-hidden relative">
             {children}

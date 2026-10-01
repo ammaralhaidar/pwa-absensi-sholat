@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { isSessionActiveOnDay, getEffectiveSessionTime } from '@/utils/sessionHelper';
 
 export async function POST(req: Request) {
   try {
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Santri tidak ditemukan" }, { status: 404 });
     }
 
-    // 2. Tentukan Sesi Sholat yang sedang aktif secara dinamis
+    // 2. Tentukan Sesi yang sedang aktif secara dinamis
     // Konversi ke WIB (UTC+7) agar sesuai dengan jam di database
     const now = new Date();
     const wibNow = new Date(now.getTime() + 7 * 60 * 60 * 1000);
@@ -40,8 +41,14 @@ export async function POST(req: Request) {
     
     if (allSesi && !sesiError) {
       const todayDay = wibNow.getUTCDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu (WIB)
-      // Filter sesi yang aktif pada hari ini
-      const validSesi = allSesi.filter(s => !s.hari_aktif || s.hari_aktif.includes(todayDay));
+      // Filter sesi yang aktif pada hari ini dan sesuaikan jam efektifnya
+      const validSesi = allSesi
+        .filter(s => isSessionActiveOnDay(s, todayDay))
+        .map(s => {
+          const effective = getEffectiveSessionTime(s, todayDay);
+          return { ...s, ...effective };
+        });
+
       // Cari sesi yang waktunya sedang berlangsung (jam_mulai <= now <= jam_berakhir)
       activeSesi = validSesi.find(s => nowTime >= s.jam_mulai && nowTime <= s.jam_berakhir);
     }

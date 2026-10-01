@@ -9,6 +9,7 @@ import { createClient } from "@/utils/supabase/client";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { isSessionActiveOnDay, getEffectiveSessionTime, SesiSholat } from "@/utils/sessionHelper";
 
 type ScanLog = {
   id: string;
@@ -17,15 +18,6 @@ type ScanLog = {
   kelas: string;
   time: string;
   status: "Hadir" | "Terlambat";
-};
-
-type SesiSholat = {
-  id: string;
-  nama_sesi: string;
-  jam_mulai: string;
-  jam_batas_hadir: string;
-  jam_berakhir: string;
-  hari_aktif?: number[];
 };
 
 export default function Home() {
@@ -55,7 +47,12 @@ export default function Home() {
       let active: SesiSholat | null = null;
       let next: SesiSholat | null = null;
 
-      const filteredData = data.filter((sesi) => !sesi.hari_aktif || sesi.hari_aktif.includes(todayDay));
+      const filteredData = (data as SesiSholat[])
+        .filter((sesi) => isSessionActiveOnDay(sesi, todayDay))
+        .map((sesi) => {
+          const effective = getEffectiveSessionTime(sesi, todayDay);
+          return { ...sesi, ...effective };
+        });
 
       const processedSesi = filteredData.map((sesi) => {
         let isActive = false;

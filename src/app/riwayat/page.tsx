@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/utils/supabase/client";
+import { isSessionActiveOnDay } from "@/utils/sessionHelper";
 
 type SantriRow = {
   id: string;
@@ -67,7 +68,7 @@ export default function RiwayatPage() {
     try {
       const [santriRes, sesiRes, logRes] = await Promise.all([
         supabase.from("data_santri").select("id, nama_santri, kelas").order("nama_santri"),
-        supabase.from("sesi_sholat").select("id, nama_sesi").order("jam_mulai"),
+        supabase.from("sesi_sholat").select("id, nama_sesi, hari_aktif, jadwal_khusus").order("jam_mulai"),
         supabase.from("log_absensi").select("santri_id, sesi_id, status, keterangan").eq("tanggal", dateStr)
       ]);
 
@@ -76,13 +77,12 @@ export default function RiwayatPage() {
         const classes = Array.from(new Set(santriRes.data.map(s => s.kelas))).sort();
         setKelasList(["Semua Kelas", ...classes]);
 
-        // Map sessions
-        const sesiMap = new Map();
-        const sesiNames: string[] = [];
-        sesiRes.data.forEach(s => {
-          sesiMap.set(s.id, s.nama_sesi);
-          sesiNames.push(s.nama_sesi);
-        });
+        // Filter sessions that are active on selected date
+        const dayOfWeek = date.getDay();
+        const activeSessions = sesiRes.data.filter(s => isSessionActiveOnDay(s, dayOfWeek));
+
+        // Map active sessions
+        const sesiNames = activeSessions.map(s => s.nama_sesi);
         setSesiColumns(sesiNames);
 
         // Build Pivot Table
@@ -99,7 +99,7 @@ export default function RiwayatPage() {
 
         const rows: SantriRow[] = santriRes.data.map(santri => {
           const absensi: Record<string, string> = {};
-          sesiRes.data.forEach(sesi => {
+          activeSessions.forEach(sesi => {
             const status = logMap.get(`${santri.id}_${sesi.id}`);
             absensi[sesi.nama_sesi] = status || "-"; // "-" means no data
           });
@@ -173,7 +173,7 @@ export default function RiwayatPage() {
 
       const [santriRes, sesiRes] = await Promise.all([
         supabase.from("data_santri").select("id, nama_santri, kelas").order("nama_santri"),
-        supabase.from("sesi_sholat").select("id, nama_sesi").order("jam_mulai")
+        supabase.from("sesi_sholat").select("id, nama_sesi, hari_aktif, jadwal_khusus").order("jam_mulai")
       ]);
 
       let allLogData: any[] = [];
@@ -263,8 +263,12 @@ export default function RiwayatPage() {
         allDates.forEach(date => {
           const dateStr = format(date, "yyyy-MM-dd");
           const dateLabel = format(date, "d MMM", { locale: id });
+          const dayOfWeek = date.getDay();
 
-          sesiRes.data.forEach(sesi => {
+          // Hanya sesi yang aktif di hari ini yang dibuatkan kolom dan dihitung
+          const activeSessionsToday = sesiRes.data.filter(sesi => isSessionActiveOnDay(sesi, dayOfWeek));
+
+          activeSessionsToday.forEach(sesi => {
             const columnName = `${dateLabel} - ${sesi.nama_sesi}`;
             const key = `${santri.id}_${dateStr}_${sesi.id}`;
             const status = logMap.get(key) || "-";

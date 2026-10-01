@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
+import { isSessionActiveOnDay } from "@/utils/sessionHelper";
 
 type SantriStat = {
   id: string;
@@ -47,7 +48,7 @@ export default function Dashboard() {
     try {
       // 1. Get base master data
       const { data: santriData } = await supabase.from('data_santri').select('id, nama_santri, kelas');
-      const { data: sesiData } = await supabase.from('sesi_sholat').select('id, nama_sesi').order('jam_mulai');
+      const { data: sesiData } = await supabase.from('sesi_sholat').select('id, nama_sesi, hari_aktif').order('jam_mulai');
       
       const tSantri = santriData?.length || 0;
       setTotalSantri(tSantri);
@@ -76,13 +77,13 @@ export default function Dashboard() {
         return;
       }
 
-      // Process Charts for specific date only (even if month is selected, we show chart for 'date' selected)
-      // Actually, if month is selected, we could average it, but let's just show total for simplicity or default to selected date.
-      // Let's filter logData for the exact 'date' for the bar chart.
+      // Process Charts for specific date only (filter active sessions for selected date)
       const exactDateStr = format(date, "yyyy-MM-dd");
       const logsToday = logData.filter(l => l.tanggal === exactDateStr);
+      const dayOfWeek = date.getDay();
+      const activeSesiData = sesiData.filter(s => isSessionActiveOnDay(s, dayOfWeek));
 
-      const chartData = sesiData.map(sesi => {
+      const chartData = activeSesiData.map(sesi => {
         const hadirCount = logsToday.filter(l => l.sesi_id === sesi.id && (l.status === 'Hadir' || l.status === 'Terlambat')).length;
         return {
           session: sesi.nama_sesi,

@@ -22,6 +22,7 @@ CREATE TABLE sesi_sholat (
     jam_batas_hadir TIME NOT NULL,
     jam_berakhir TIME NOT NULL,
     hari_aktif INT[] DEFAULT '{0,1,2,3,4,5,6}', -- Array hari (0=Minggu, 1=Senin, ..., 6=Sabtu)
+    jadwal_khusus JSONB DEFAULT '{}'::jsonb, -- Konfigurasi jam custom per hari: {"0": {"jam_mulai": "08:00:00", ...}}
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

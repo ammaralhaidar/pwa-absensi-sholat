@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { isSessionActiveOnDay, getEffectiveSessionTime } from '@/utils/sessionHelper';
 
 // Vercel Cron akan mengirimkan Authorization Header khusus
 // Jika kita mendefinisikan CRON_SECRET di .env.local, Vercel akan mencocokkannya
@@ -44,16 +45,23 @@ export async function GET(req: Request) {
 
     const todayDay = wibNow.getUTCDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu (WIB)
 
-    // 3. Ambil semua sesi sholat yang jam berakhirnya SUDAH LEWAT
+    // 3. Ambil semua sesi
     const { data: rawSesiList, error: sesiError } = await supabase
       .from('sesi_sholat')
-      .select('id, nama_sesi, jam_berakhir, hari_aktif')
-      .lte('jam_berakhir', nowTime);
+      .select('*');
 
     if (sesiError) throw sesiError;
 
-    // Filter hanya sesi yang aktif pada hari ini
-    const sesiList = rawSesiList ? rawSesiList.filter(s => !s.hari_aktif || s.hari_aktif.includes(todayDay)) : [];
+    // Filter sesi yang aktif pada hari ini, sesuaikan jam efektif, dan filter yang jam berakhirnya SUDAH LEWAT
+    const sesiList = rawSesiList
+      ? rawSesiList
+          .filter(s => isSessionActiveOnDay(s, todayDay))
+          .map(s => {
+            const effective = getEffectiveSessionTime(s, todayDay);
+            return { ...s, ...effective };
+          })
+          .filter(s => s.jam_berakhir <= nowTime)
+      : [];
 
     if (!sesiList || sesiList.length === 0) {
       return NextResponse.json({ success: true, message: "Tidak ada sesi kegiatan yang baru saja berakhir hari ini." });
