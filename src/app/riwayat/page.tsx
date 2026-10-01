@@ -68,7 +68,7 @@ export default function RiwayatPage() {
     try {
       const [santriRes, sesiRes, logRes] = await Promise.all([
         supabase.from("data_santri").select("id, nama_santri, kelas").order("nama_santri"),
-        supabase.from("sesi_sholat").select("id, nama_sesi, hari_aktif, jadwal_khusus").order("jam_mulai"),
+        supabase.from("sesi_sholat").select("id, nama_sesi, hari_aktif").order("jam_mulai"),
         supabase.from("log_absensi").select("santri_id, sesi_id, status, keterangan").eq("tanggal", dateStr)
       ]);
 
@@ -173,7 +173,7 @@ export default function RiwayatPage() {
 
       const [santriRes, sesiRes] = await Promise.all([
         supabase.from("data_santri").select("id, nama_santri, kelas").order("nama_santri"),
-        supabase.from("sesi_sholat").select("id, nama_sesi, hari_aktif, jadwal_khusus").order("jam_mulai")
+        supabase.from("sesi_sholat").select("id, nama_sesi, hari_aktif").order("jam_mulai")
       ]);
 
       let allLogData: any[] = [];
